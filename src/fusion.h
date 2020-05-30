@@ -3,14 +3,25 @@
 typedef uint32_t boundaryLabel;
 typedef uint32_t tileIndex;
 
+
+/*
+ * the input for funsion.elf is a folder containing:
+ * 1. the tile svg files
+ * 2. a manifest.csv which contains a list of tiles and their boundary labels
+ * and an output file name.
+ * the tile names shouldn't have any spaces
+ */
+
+
 /* boundary pattern for tiles
  *    1
  *   2 0
  *    3
+ * this is the order of the boundary labels in manifest.csv
  */
 
 typedef struct tile_s {
-  char *svg;                  // file path for tile svg
+  char *svg;                  // file path for tile relative to input directory
   boundaryLabel boundary[4];  // boundary labels counterclockwise starting from right
 } tile;
 
