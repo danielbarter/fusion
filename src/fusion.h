@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdio.h>
 
 typedef uint32_t boundaryLabel;
 typedef uint32_t tileIndex;
