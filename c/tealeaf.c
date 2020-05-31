@@ -4,19 +4,21 @@ bool masked(uint32_t row,
             uint32_t column,
             uint32_t num_rows,
             uint32_t num_columns,
-            uint32_t cutoff)
+            uint32_t row_cutoff,
+            uint32_t column_cutoff)
 {
-  return (cutoff <= row && row <= num_rows - cutoff)
-    || (cutoff <= column && column <= num_columns - cutoff);
+  return (row_cutoff <= row && row <= num_rows - row_cutoff)
+    || (column_cutoff <= column && column <= num_columns - column_cutoff);
 }
 
-bool *generateTeaLeaf(uint32_t seed,
+uint8_t *generateTeaLeaf(uint32_t seed,
                       uint32_t num_rows,
                       uint32_t num_columns,
-                      uint32_t cutoff)
+                      uint32_t row_cutoff,
+                      uint32_t column_cutoff)
 {
   fftw_complex *in, *middle, *out;
-  bool *image;
+  uint8_t *image;
   fftw_plan plan1;
   fftw_plan plan2;
   uint32_t i;
@@ -57,7 +59,7 @@ bool *generateTeaLeaf(uint32_t seed,
     {
       row = i / num_columns;
       column = i % num_columns;
-      if ( masked(row,column,num_rows,num_columns,cutoff) )
+      if ( masked(row,column,num_rows,num_columns,row_cutoff,column_cutoff) )
         {
         middle[i][0] = 0.0;
         middle[i][1] = 0.0;
@@ -72,10 +74,10 @@ bool *generateTeaLeaf(uint32_t seed,
     {
       if ( out[i][0] > array_size / 2 )
         {
-          image[i] = true;
+          image[i] = 255;
         } else
         {
-          image[i] = false;
+          image[i] = 0;
         }
     }
 
@@ -87,4 +89,9 @@ bool *generateTeaLeaf(uint32_t seed,
   fftw_free(out);
 
   return image;
+}
+
+void freeTeaLeaf(bool *ptr)
+{
+  free(ptr);
 }

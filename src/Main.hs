@@ -3,21 +3,26 @@
 module Main where
 
 import Data.Word (Word8)
-import Foreign.Marshal.Alloc (free)
-import Data.Primitive.PrimArray
-import Data.Primitive.Ptr
+import Foreign.ForeignPtr
+import Foreign.Ptr
+import Data.Vector.Storable
+import Codec.Picture
 
+
+foreign import ccall "&freeTeaLeaf" freeTeaLeafC :: FunPtr (Ptr Word8 -> IO ())
 foreign import ccall "generateTeaLeaf" generateTeaLeafC ::
-  Int -> Int -> Int -> Int -> IO (Ptr Word8)
+  Int -> Int -> Int -> Int -> Int -> IO (Ptr Word8)
 
-generateTeaLeaf :: Int -> Int -> Int -> Int -> IO (PrimArray Word8)
-generateTeaLeaf seed numRows numCols cutoff = do
+
+generateTeaLeaf :: Int -> Int -> Int -> Int -> Int -> IO (Image Word8)
+generateTeaLeaf seed numRows numCols rowCutoff columnCutoff = do
   let size = numRows * numCols
-  ptr <- generateTeaLeafC seed numRows numCols cutoff
-  teaLeafMutable <- newPrimArray size
-  free ptr
-  copyPtrToMutablePrimArray teaLeafMutable 0 ptr size
-  unsafeFreezePrimArray teaLeafMutable
+  ptr <- generateTeaLeafC seed numRows numCols rowCutoff columnCutoff
+  foreignPtr <- newForeignPtr freeTeaLeafC ptr
+  vector <- freeze $ MVector size foreignPtr
+  return $ Image numCols numRows vector
+
+
 
 main :: IO ()
-main = generateTeaLeaf 42 420 420 5 >>= (putStrLn . show)
+main = generateTeaLeaf 34605832 1000 200 20 3 >>= ( writePng "tealeaf.png" )

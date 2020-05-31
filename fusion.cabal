@@ -12,7 +12,8 @@ executable fusion
   main-is:             Main.hs
   default-language:    Haskell2010
   build-depends:       base
-                     , primitive
+                     , vector
+                     , JuicyPixels
   c-sources:           c/tealeaf.c
   extra-libraries:     fftw3
 
