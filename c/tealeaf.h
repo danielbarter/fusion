@@ -2,10 +2,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <stdio.h> // delete me later
 
-#define NUM_PIXELS 420
-#define FREQUENCY_CUTOFF 5
+bool masked(uint32_t row,
+            uint32_t column,
+            uint32_t num_rows,
+            uint32_t num_columns,
+            uint32_t cutoff);
 
-bool masked(uint32_t row, uint32_t column);
-bool *generateTeaLeaf(uint32_t seed);
+bool *generateTeaLeaf(uint32_t seed,
+                      uint32_t num_rows,
+                      uint32_t num_columns,
+                      uint32_t cutoff);
