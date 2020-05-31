@@ -13,6 +13,7 @@ executable fusion
   default-language:    Haskell2010
   build-depends:       base
                      , vector
+                     , containers
                      , JuicyPixels
   c-sources:           c/tealeaf.c
   extra-libraries:     fftw3
