@@ -14,6 +14,8 @@ executable fusion
   build-depends:       base
                      , vector
                      , containers
+                     , bytestring
+                     , cryptohash-md5
                      , JuicyPixels
   c-sources:           c/tealeaf.c
   extra-libraries:     fftw3

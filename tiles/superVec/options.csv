@@ -1,2 +1,2 @@
-width,height,frequencyCutoff
-420,420,5
+seed,numberOfRows,numberOfColumns,rowCutoff,columnCutoff,tileWidth,tileHeight
+hello,1000,200,20,3,101,101
