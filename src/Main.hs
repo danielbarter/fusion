@@ -55,7 +55,6 @@ foreign import ccall "generateTeaLeaf" generateTeaLeafC ::
   Int -> Int -> Int -> Int -> Int -> IO (Ptr Word8)
 
 
-
 generateTeaLeaf :: Int -> Int -> Int -> Int -> Int -> IO (Image Word8)
 generateTeaLeaf seed numRows numCols rowCutoff columnCutoff = do
   let size = numRows * numCols
