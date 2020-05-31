@@ -1,3 +1,12 @@
+{-# LANGUAGE ForeignFunctionInterface #-}
+
 module Main where
 
-main = putStrLn "yo"
+import Foreign.Ptr
+
+foreign import ccall "generateTeaLeaf" generateTeaLeaf :: Int -> IO (Ptr Bool)
+
+main :: IO ()
+main = do
+  ptr <- generateTeaLeaf 0
+  return ()

@@ -1,10 +1,4 @@
-#include <stdlib.h>
-#include <stdbool.h>
-#include <fftw3.h>
-#include <stdint.h>
-
-#define NUM_PIXELS 420
-#define FREQUENCY_CUTOFF 5
+#include "tealeaf.h"
 
 bool masked(uint32_t row, uint32_t column)
 {
@@ -13,7 +7,7 @@ bool masked(uint32_t row, uint32_t column)
 }
 
 
-fftw_complex *generateTeaLeaf(uint32_t seed)
+bool *generateTeaLeaf(uint32_t seed)
 {
   fftw_complex *in, *middle, *out;
   bool *image;
@@ -71,10 +65,10 @@ fftw_complex *generateTeaLeaf(uint32_t seed)
     {
       if ( out[i][0] > NUM_PIXELS * NUM_PIXELS / 2 )
         {
-          image[i].blue = true;
+          image[i] = true;
         } else
         {
-          image[i].blue = false;
+          image[i] = false;
         }
     }
 
