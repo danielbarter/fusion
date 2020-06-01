@@ -1,2 +1,2 @@
-seed,numberOfRows,numberOfColumns,rowCutOff,columnCutOff,tileWidth,tileHeight
-anna,1000,200,20,3,101,101
+numberOfRows,numberOfColumns,rowCutOff,columnCutOff,tileWidth,tileHeight,vacuumTile,seed
+1000        ,200            ,20       ,3           ,101      ,101      ,0          ,AnnaSavage 
