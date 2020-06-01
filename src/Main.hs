@@ -11,7 +11,7 @@ import Foreign.Storable (peek)
 import qualified Data.Vector as V
 import Crypto.Hash.MD5 (hash)
 import Data.Map.Strict hiding (size)
-import qualified Data.ByteString as B
+-- import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Data.ByteString.Char8 (unpack)
 import Data.ByteString.Internal (ByteString(..))
