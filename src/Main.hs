@@ -110,7 +110,7 @@ main = do
       setCurrentDirectory folder
       optionsByteString <- L.readFile "options.csv"
       let eitherOptions =
-            Csv.decodeByName optionsByteString :: Either String (Csv.Header, V.Vector Options)
+            Csv.decodeByName optionsByteString
       case eitherOptions of
         Left err -> putStrLn $ "error parsing options.csv: " <> err
         Right (_,optionsVector) -> do
