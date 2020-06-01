@@ -85,5 +85,5 @@ generateTeaLeaf Options{..} = do
 
 
 main :: IO ()
-main = generateTeaLeaf (Options "hobie" 1000 200 20 3 101 101 ) >>= ( writePng "tealeaf.png" )
+main = generateTeaLeaf (Options "anna" 1000 200 20 3 101 101 ) >>= ( writePng "tealeaf.png" )
 
