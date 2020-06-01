@@ -109,8 +109,7 @@ main = do
       let folder = Prelude.head args
       setCurrentDirectory folder
       optionsByteString <- L.readFile "options.csv"
-      let eitherOptions =
-            Csv.decodeByName optionsByteString
+      let eitherOptions = Csv.decodeByName optionsByteString
       case eitherOptions of
         Left err -> putStrLn $ "error parsing options.csv: " <> err
         Right (_,optionsVector) -> do
