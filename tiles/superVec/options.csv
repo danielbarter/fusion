@@ -1,2 +1,2 @@
-seed,numberOfRows,numberOfColumns,rowCutoff,columnCutoff,tileWidth,tileHeight
-hello,1000,200,20,3,101,101
+seed,numberOfRows,numberOfColumns,rowCutOff,columnCutOff,tileWidth,tileHeight
+anna,1000,200,20,3,101,101

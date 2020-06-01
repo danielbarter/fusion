@@ -17,6 +17,8 @@ executable fusion
                      , bytestring
                      , cryptohash-md5
                      , JuicyPixels
+                     , cassava
+                     , directory
   c-sources:           c/tealeaf.c
   extra-libraries:     fftw3
 
