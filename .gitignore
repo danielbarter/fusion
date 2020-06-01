@@ -3,3 +3,4 @@ stack.yaml
 stack.yaml.lock
 tealeaf.png
 runtealeaf.elf
+tealeaf_*.png
