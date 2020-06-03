@@ -119,7 +119,7 @@ type LocalRelation = V.Vector MacroTile
 type LocalRelations = M.Map MacroBoundary LocalRelation
 
 
--- here we created the values first as linked lists and then convert to vectors
+-- here we created the values first as linked lists and then convert to vectors once we have looped through the TileStore
 -- this way we get constant time cons
 computeLocalRelations :: TileStore -> LocalRelations
 computeLocalRelations store = V.fromList <$> V.foldl' action M.empty macroTiles
