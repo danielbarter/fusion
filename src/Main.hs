@@ -10,7 +10,7 @@ import Foreign.Ptr
 import Foreign.Storable (peek)
 import qualified Data.Vector as V
 import Crypto.Hash.MD5 (hash)
-import Data.Map.Strict hiding (size)
+import qualified Data.Map.Strict as M
 -- import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Data.ByteString.Char8 (unpack)
@@ -44,6 +44,7 @@ instance Csv.FromRecord Tile where
     Tile <$> m .! 0 <*> m .! 1 <*>  m .! 2 <*> m .! 3 <*> m .! 4
 
 
+
 -- we refer to tiles by their index in the tile store
 data TileStore = TileStore
   { tiles :: V.Vector Tile
@@ -73,7 +74,7 @@ data MacroBoundary = MacroBoundary
   , clock8 :: Int
   , clock7 :: Int
   , clock5 :: Int
-  }
+  } deriving (Eq, Ord, Show)
 
 
 data MacroTile = MacroTile
@@ -81,11 +82,54 @@ data MacroTile = MacroTile
   , topRight :: Int
   , topLeft :: Int
   , bottomLeft :: Int
+  } deriving (Show)
+
+macroBoundary :: TileStore -> MacroTile -> MacroBoundary
+macroBoundary TileStore{..} MacroTile{..} =
+  MacroBoundary
+  { clock4  = right  $ tiles V.! bottomRight
+  , clock2  = right  $ tiles V.! topRight
+  , clock1  = top    $ tiles V.! topRight
+  , clock11 = top    $ tiles V.! topLeft
+  , clock10 = left   $ tiles V.! topLeft
+  , clock8  = left   $ tiles V.! bottomLeft
+  , clock7  = bottom $ tiles V.! bottomLeft
+  , clock5  = bottom $ tiles V.! bottomRight
   }
+
+validMacroTile :: TileStore -> MacroTile -> Bool
+validMacroTile TileStore{..} MacroTile{..} =
+  and [ ( top $ tiles V.! bottomRight ) == ( bottom $ tiles V.! topRight )
+      , ( top $ tiles V.! bottomLeft )  == ( bottom $ tiles V.! topLeft )
+      , ( right $ tiles V.! topLeft)    == ( left $ tiles V.! topRight )
+      , ( right $ tiles V.! bottomLeft) == ( left $ tiles V.! bottomRight ) ]
+
+computeMacroTiles :: TileStore -> V.Vector MacroTile
+computeMacroTiles store@TileStore{..} = V.filter ( validMacroTile store ) $ do
+  a <- indices
+  b <- indices
+  c <- indices
+  d <- indices
+  return $ MacroTile a b c d
+  where numOfTiles = V.length tiles
+        indices    = V.generate numOfTiles id
 
 
 type LocalRelation = V.Vector MacroTile
-type LocalRelations = Map MacroBoundary LocalRelation
+type LocalRelations = M.Map MacroBoundary LocalRelation
+
+
+-- here we created the values first as linked lists and then convert to vectors
+-- this way we get constant time cons
+computeLocalRelations :: TileStore -> LocalRelations
+computeLocalRelations store = V.fromList <$> V.foldl' action M.empty macroTiles
+  where macroTiles = computeMacroTiles store
+        action m tile =
+          let boundary = macroBoundary store tile
+          in case M.lookup boundary m of
+            Nothing -> M.insert boundary [] m
+            Just v -> M.insert boundary ( tile : v ) m
+
 
 data Options = Options
   { seed :: ByteString
@@ -150,6 +194,7 @@ main = do
             Left err -> putStrLn $ "error parsing manifest.csv: " <> err
             Right tileVector -> do
               let tileStore = TileStore tileVector $ vacummTile options
-              putStrLn $ show tileStore
+                  localRelations = computeLocalRelations tileStore
+              putStrLn $ show localRelations
               return ()
 
