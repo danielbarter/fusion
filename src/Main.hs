@@ -17,7 +17,8 @@ import Data.ByteString.Char8 (unpack)
 import Data.ByteString.Internal (ByteString(..))
 import Data.Csv ((.:), (.!))
 import qualified Data.Csv as Csv
-import qualified Data.Vector.Storable as Storable
+import qualified Data.Vector.Storable as S
+import qualified Data.Vector.Storable.Mutable as SM
 import System.Environment (getArgs)
 import System.Directory (setCurrentDirectory)
 import qualified Codec.Picture as JP
@@ -120,7 +121,6 @@ type LocalRelations = M.Map MacroBoundary LocalRelation
 
 
 -- here we created the values first as linked lists and then convert to vectors once we have looped through the TileStore
--- this way we get constant time cons
 computeLocalRelations :: TileStore -> LocalRelations
 computeLocalRelations store = V.fromList <$> V.foldl' action M.empty macroTiles
   where macroTiles = computeMacroTiles store
@@ -166,10 +166,15 @@ generateTeaLeaf Options{..} = do
   ptr <- generateTeaLeafC seedNum
     numberOfRows numberOfColumns rowCutOff columnCutOff
   foreignPtr <- newForeignPtr freeTeaLeafC ptr
-  vector <- Storable.freeze $ Storable.MVector size foreignPtr
+  vector <- S.freeze $ S.MVector size foreignPtr
   return $ JP.Image numberOfColumns numberOfRows vector
 
-
+data FusionContext = FusionContext
+  { tileStore :: TileStore
+  , localRelations :: LocalRelations
+  , teaLeaf :: S.Vector Bool
+  , fusionState :: SM.IOVector Int
+  }
 
 
 main :: IO ()
