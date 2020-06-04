@@ -22,7 +22,7 @@ import qualified Data.Vector.Storable.Mutable as SM
 import System.Environment (getArgs)
 import System.Directory (setCurrentDirectory)
 import qualified Codec.Picture as JP
-import System.Random (randomIO)
+import System.Random (randomIO,mkStdGen,setStdGen)
 
 {-
 boundary pattern for tiles
@@ -167,6 +167,9 @@ generateTeaLeafImage Options{..} = do
     numberOfRows numberOfColumns rowCutOff columnCutOff
   foreignPtr <- newForeignPtr freeTeaLeafC ptr
   vector <- S.freeze $ S.MVector size foreignPtr
+  -- we set the random number generator here because seedNum is in scope
+  -- this is not an ideal location, but we need a refactor to fix
+  setStdGen $ mkStdGen seedNum
   return $ JP.Image numberOfColumns numberOfRows vector
 
 data FusionContext = FusionContext
@@ -225,5 +228,6 @@ main = do
                     , teaLeaf = teaLeaf
                     , fusionState = fusionState
                     }
-              runFusion options fusionContext
+              testRandom <- randomIO :: IO Int
+              putStrLn $ show testRandom
               return ()
