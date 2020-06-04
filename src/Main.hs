@@ -1,6 +1,6 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Main where
 
