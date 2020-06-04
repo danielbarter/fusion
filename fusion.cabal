@@ -19,6 +19,7 @@ executable fusion
                      , JuicyPixels
                      , cassava
                      , directory
+                     , random
   c-sources:           c/tealeaf.c
   extra-libraries:     fftw3
 

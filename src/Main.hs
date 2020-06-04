@@ -22,6 +22,7 @@ import qualified Data.Vector.Storable.Mutable as SM
 import System.Environment (getArgs)
 import System.Directory (setCurrentDirectory)
 import qualified Codec.Picture as JP
+import System.Random (randomIO)
 
 {-
 boundary pattern for tiles
@@ -47,10 +48,7 @@ instance Csv.FromRecord Tile where
 
 
 -- we refer to tiles by their index in the tile store
-data TileStore = TileStore
-  { tiles :: V.Vector Tile
-  , vacuumTile :: Int -- usually 0
-  } deriving (Show)
+type TileStore = V.Vector Tile
 
 {-
 boundary pattern for macro tiles
@@ -86,7 +84,7 @@ data MacroTile = MacroTile
   } deriving (Show)
 
 macroBoundary :: TileStore -> MacroTile -> MacroBoundary
-macroBoundary TileStore{..} MacroTile{..} =
+macroBoundary tiles MacroTile{..} =
   MacroBoundary
   { clock4  = right  $ tiles V.! bottomRight
   , clock2  = right  $ tiles V.! topRight
@@ -99,20 +97,20 @@ macroBoundary TileStore{..} MacroTile{..} =
   }
 
 validMacroTile :: TileStore -> MacroTile -> Bool
-validMacroTile TileStore{..} MacroTile{..} =
+validMacroTile tiles MacroTile{..} =
   and [ ( top $ tiles V.! bottomRight ) == ( bottom $ tiles V.! topRight )
       , ( top $ tiles V.! bottomLeft )  == ( bottom $ tiles V.! topLeft )
       , ( right $ tiles V.! topLeft)    == ( left $ tiles V.! topRight )
       , ( right $ tiles V.! bottomLeft) == ( left $ tiles V.! bottomRight ) ]
 
 computeMacroTiles :: TileStore -> V.Vector MacroTile
-computeMacroTiles store@TileStore{..} = V.filter ( validMacroTile store ) $ do
+computeMacroTiles store = V.filter ( validMacroTile store ) $ do
   a <- indices
   b <- indices
   c <- indices
   d <- indices
   return $ MacroTile a b c d
-  where numOfTiles = V.length tiles
+  where numOfTiles = V.length store
         indices    = V.generate numOfTiles id
 
 
@@ -139,7 +137,7 @@ data Options = Options
   , columnCutOff :: Int
   , tileWidth :: Int
   , tileHeight :: Int
-  , vacummTile :: Int
+  , vacuumTile :: Int
   , numberOfSteps :: Int
   } deriving (Show)
 
@@ -160,8 +158,8 @@ foreign import ccall "generateTeaLeaf" generateTeaLeafC ::
   Int -> Int -> Int -> Int -> Int -> IO (Ptr Word8)
 
 
-generateTeaLeaf :: Options -> IO (JP.Image Word8)
-generateTeaLeaf Options{..} = do
+generateTeaLeafImage :: Options -> IO (JP.Image Word8)
+generateTeaLeafImage Options{..} = do
   let size = numberOfRows * numberOfColumns
       PS hashPtr _ _ = ( hash seed )
   seedNum <- withForeignPtr ( castForeignPtr hashPtr ) peek
@@ -178,6 +176,21 @@ data FusionContext = FusionContext
   , fusionState :: SM.IOVector Int
   }
 
+runFusion :: Options -> FusionContext -> IO ()
+runFusion Options{..} FusionContext{..} = undefined
+
+step :: Options -> FusionContext -> IO ()
+step Options{..} FusionContext{..} = do
+  let arrayLength = SM.length fusionState
+  randomInt <- randomIO
+  let indexTopLeft = randomInt `mod` arrayLength
+      row = indexTopLeft `div` numberOfColumns
+      column = indexTopLeft `mod` numberOfColumns
+  return ()
+
+
+word8ToBool :: Word8 -> Bool
+word8ToBool w = if w == 0 then False else True
 
 main :: IO ()
 main = do
@@ -192,16 +205,25 @@ main = do
       case eitherOptions of
         Left err -> putStrLn $ "error parsing options.csv: " <> err
         Right (_,optionsVector) -> do
-          let options = V.head optionsVector
-          teaLeaf <- generateTeaLeaf options
-          JP.writePng ("tealeaf_" <> (unpack $ seed options) <> ".png") teaLeaf
+          let options@Options{..} = V.head optionsVector
+          teaLeafImage <- generateTeaLeafImage options
+          JP.writePng ("tealeaf_" <> (unpack $ seed) <> ".png") teaLeafImage
           manifestByteString <- L.readFile "manifest.csv"
           let eitherTiles = Csv.decode Csv.NoHeader manifestByteString
           case eitherTiles of
             Left err -> putStrLn $ "error parsing manifest.csv: " <> err
             Right tileVector -> do
-              let tileStore = TileStore tileVector $ vacummTile options
+              let tileStore = tileVector
                   localRelations = computeLocalRelations tileStore
-              putStrLn $ show localRelations
+                  teaLeaf = S.map word8ToBool $ JP.imageData teaLeafImage
+                  arrayLength = numberOfColumns * numberOfRows
+              fusionState <- SM.new $ arrayLength
+              SM.set fusionState vacuumTile
+              let fusionContext = FusionContext
+                    { tileStore = tileStore
+                    , localRelations = localRelations
+                    , teaLeaf = teaLeaf
+                    , fusionState = fusionState
+                    }
+              runFusion options fusionContext
               return ()
-
