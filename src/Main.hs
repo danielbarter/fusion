@@ -140,6 +140,7 @@ data Options = Options
   , tileWidth :: Int
   , tileHeight :: Int
   , vacummTile :: Int
+  , numberOfSteps :: Int
   } deriving (Show)
 
 instance Csv.FromNamedRecord Options where
@@ -151,7 +152,8 @@ instance Csv.FromNamedRecord Options where
     m .: "columnCutOff" <*>
     m .: "tileWidth" <*>
     m .: "tileHeight" <*>
-    m .: "vacuumTile"
+    m .: "vacuumTile" <*>
+    m .: "numberOfSteps"
 
 foreign import ccall "&freeTeaLeaf" freeTeaLeafC :: FunPtr (Ptr Word8 -> IO ())
 foreign import ccall "generateTeaLeaf" generateTeaLeafC ::
