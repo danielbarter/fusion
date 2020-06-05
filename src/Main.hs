@@ -183,13 +183,41 @@ runFusion :: Options -> FusionContext -> IO ()
 runFusion Options{..} FusionContext{..} = undefined
 
 step :: Options -> FusionContext -> IO ()
-step Options{..} FusionContext{..} = do
+step options@Options{..} FusionContext{..} = do
   let arrayLength = SM.length fusionState
   randomInt <- randomIO
-  let indexTopLeft = randomInt `mod` arrayLength
-      row = indexTopLeft `div` numberOfColumns
-      column = indexTopLeft `mod` numberOfColumns
+  let index = randomInt `mod` arrayLength
+  let (bottomRightIndex, topRightIndex, topLeftIndex, bottomLeftIndex) =
+        macroTileIndices options $ indexToCoordinates options index
+
   return ()
+
+indexToCoordinates :: Options  -> Int -> (Int,Int)
+indexToCoordinates Options{..} index =
+  (index `div` numberOfColumns, index `mod` numberOfColumns)
+
+coordinatesToIndex :: Options -> (Int,Int) -> Int
+coordinatesToIndex Options{..} (row,column) =
+  row * numberOfColumns + column
+
+{-
+tile pattern for macro tiles
+
+  2 1
+  3 0
+-}
+
+macroTileIndices ::
+  Options -> (Int,Int) -> (Int,Int,Int,Int)
+macroTileIndices options@Options{..} (row,column) =
+  ( coordinatesToIndex options (row' , column')
+  , coordinatesToIndex options (row  , column')
+  , coordinatesToIndex options (row  , column )
+  , coordinatesToIndex options (row' , column )
+  )
+  where row'    = ( row + 1 ) `mod` numberOfRows
+        column' = ( column + 1 ) `mod` numberOfColumns
+
 
 
 word8ToBool :: Word8 -> Bool
@@ -228,6 +256,4 @@ main = do
                     , teaLeaf = teaLeaf
                     , fusionState = fusionState
                     }
-              testRandom <- randomIO :: IO Int
-              putStrLn $ show testRandom
               return ()
