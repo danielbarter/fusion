@@ -189,43 +189,39 @@ step options@Options{..} FusionContext{..} = do
   let arrayLength = SM.length fusionState
   randomInt <- randomIO
   let index = randomInt `mod` arrayLength
-  let (bottomRightIndex, topRightIndex, topLeftIndex, bottomLeftIndex) =
-        macroTileIndices options index
-  bottomRightTile <- SM.read fusionState bottomRightIndex
-  topRightTile    <- SM.read fusionState topRightIndex
-  topLeftTile     <- SM.read fusionState topLeftIndex
-  bottomLeftTile  <- SM.read fusionState bottomLeftIndex
-  let macroTile = MacroTile
-        { bottomRight = bottomRightTile
-        , topRight = topRightTile
-        , topLeft = topLeftTile
-        , bottomLeft = bottomLeftTile
-        }
-      macroTileBoundary = macroBoundary tileStore macroTile
-      mLocalRelation = M.lookup macroTileBoundary localRelations
-  case mLocalRelation of
-    Nothing -> throwIO $ MissingKey macroTileBoundary
-    Just localRelation -> do
-      let localRelationLength = V.length localRelation
-      randomInt' <- randomIO
-      let localRelationIndex = randomInt' `mod` localRelationLength
-          newMacroTile = localRelation V.! localRelationIndex
-      SM.write fusionState bottomRightIndex $ bottomRight newMacroTile
-      SM.write fusionState topRightIndex    $ topRight newMacroTile
-      SM.write fusionState topLeftIndex     $ topLeft newMacroTile
-      SM.write fusionState bottomLeftIndex  $ bottomLeft newMacroTile
+  if ( teaLeaf S.! index )
+    then do
+      let (bottomRightIndex, topRightIndex, topLeftIndex, bottomLeftIndex) =
+            macroTileIndices options index
+      bottomRightTile <- SM.read fusionState bottomRightIndex
+      topRightTile    <- SM.read fusionState topRightIndex
+      topLeftTile     <- SM.read fusionState topLeftIndex
+      bottomLeftTile  <- SM.read fusionState bottomLeftIndex
+      let macroTile = MacroTile
+            { bottomRight = bottomRightTile
+            , topRight = topRightTile
+            , topLeft = topLeftTile
+            , bottomLeft = bottomLeftTile
+            }
+          macroTileBoundary = macroBoundary tileStore macroTile
+          mLocalRelation = M.lookup macroTileBoundary localRelations
+      case mLocalRelation of
+        Nothing -> throwIO $ MissingKey macroTileBoundary
+        Just localRelation -> do
+          let localRelationLength = V.length localRelation
+          randomInt' <- randomIO
+          let localRelationIndex = randomInt' `mod` localRelationLength
+              newMacroTile = localRelation V.! localRelationIndex
+          SM.write fusionState bottomRightIndex $ bottomRight newMacroTile
+          SM.write fusionState topRightIndex    $ topRight newMacroTile
+          SM.write fusionState topLeftIndex     $ topLeft newMacroTile
+          SM.write fusionState bottomLeftIndex  $ bottomLeft newMacroTile
+    else return ()
 
 
 data FusionError = MissingKey MacroBoundary deriving (Show)
 
 instance Exception FusionError
-
-{-
-tile pattern for macro tiles
-
-  2 1
-  3 0
--}
 
 macroTileIndices ::
   Options -> Int -> (Int,Int,Int,Int)
@@ -239,7 +235,7 @@ macroTileIndices Options{..} index =
      , coordinatesToIndex (row' , column ))
   where
    indexToCoordinates i = (i `div` numberOfColumns, i `mod` numberOfColumns)
-   coordinatesToIndex (row,column) = row * numberOfColumns + column
+   coordinatesToIndex (r,c) = r * numberOfColumns + c
 
 
 
@@ -282,6 +278,6 @@ main = do
                     , fusionState = fusionState
                     }
               replicateM_ numberOfSteps $ step options fusionContext
-              v <- S.freeze fusionState
-              putStrLn $ show v
+              frozenFusionState <- S.freeze fusionState
+              putStrLn $ show frozenFusionState
               return ()
