@@ -1,2 +1,2 @@
 numberOfSteps,numberOfRows,numberOfColumns,rowCutOff,columnCutOff,tileWidth,tileHeight,vacuumTile,seed
-100000       ,1000        ,200            ,20       ,3           ,101      ,101       ,0         ,AnnaSavage
+100000       ,100         ,100            ,3        ,3           ,101      ,101       ,0         ,AnnaSavage
