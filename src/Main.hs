@@ -23,6 +23,8 @@ import System.Environment (getArgs)
 import System.Directory (setCurrentDirectory)
 import qualified Codec.Picture as JP
 import System.Random (randomIO,mkStdGen,setStdGen)
+import Control.Exception (Exception(..),throwIO)
+import Control.Monad (replicateM_)
 
 {-
 boundary pattern for tiles
@@ -188,17 +190,35 @@ step options@Options{..} FusionContext{..} = do
   randomInt <- randomIO
   let index = randomInt `mod` arrayLength
   let (bottomRightIndex, topRightIndex, topLeftIndex, bottomLeftIndex) =
-        macroTileIndices options $ indexToCoordinates options index
+        macroTileIndices options index
+  bottomRightTile <- SM.read fusionState bottomRightIndex
+  topRightTile    <- SM.read fusionState topRightIndex
+  topLeftTile     <- SM.read fusionState topLeftIndex
+  bottomLeftTile  <- SM.read fusionState bottomLeftIndex
+  let macroTile = MacroTile
+        { bottomRight = bottomRightTile
+        , topRight = topRightTile
+        , topLeft = topLeftTile
+        , bottomLeft = bottomLeftTile
+        }
+      macroTileBoundary = macroBoundary tileStore macroTile
+      mLocalRelation = M.lookup macroTileBoundary localRelations
+  case mLocalRelation of
+    Nothing -> throwIO $ MissingKey macroTileBoundary
+    Just localRelation -> do
+      let localRelationLength = V.length localRelation
+      randomInt' <- randomIO
+      let localRelationIndex = randomInt' `mod` localRelationLength
+          newMacroTile = localRelation V.! localRelationIndex
+      SM.write fusionState bottomRightIndex $ bottomRight newMacroTile
+      SM.write fusionState topRightIndex    $ topRight newMacroTile
+      SM.write fusionState topLeftIndex     $ topLeft newMacroTile
+      SM.write fusionState bottomLeftIndex  $ bottomLeft newMacroTile
 
-  return ()
 
-indexToCoordinates :: Options  -> Int -> (Int,Int)
-indexToCoordinates Options{..} index =
-  (index `div` numberOfColumns, index `mod` numberOfColumns)
+data FusionError = MissingKey MacroBoundary deriving (Show)
 
-coordinatesToIndex :: Options -> (Int,Int) -> Int
-coordinatesToIndex Options{..} (row,column) =
-  row * numberOfColumns + column
+instance Exception FusionError
 
 {-
 tile pattern for macro tiles
@@ -208,15 +228,20 @@ tile pattern for macro tiles
 -}
 
 macroTileIndices ::
-  Options -> (Int,Int) -> (Int,Int,Int,Int)
-macroTileIndices options@Options{..} (row,column) =
-  ( coordinatesToIndex options (row' , column')
-  , coordinatesToIndex options (row  , column')
-  , coordinatesToIndex options (row  , column )
-  , coordinatesToIndex options (row' , column )
-  )
-  where row'    = ( row + 1 ) `mod` numberOfRows
-        column' = ( column + 1 ) `mod` numberOfColumns
+  Options -> Int -> (Int,Int,Int,Int)
+macroTileIndices Options{..} index =
+  let (row,column) = indexToCoordinates index
+      row'         = ( row + 1 ) `mod` numberOfRows
+      column'      = ( column + 1 ) `mod` numberOfColumns
+  in ( coordinatesToIndex (row' , column')
+     , coordinatesToIndex (row  , column')
+     , coordinatesToIndex (row  , column )
+     , coordinatesToIndex (row' , column ))
+  where
+   indexToCoordinates i = (i `div` numberOfColumns, i `mod` numberOfColumns)
+   coordinatesToIndex (row,column) = row * numberOfColumns + column
+
+
 
 
 
@@ -256,4 +281,7 @@ main = do
                     , teaLeaf = teaLeaf
                     , fusionState = fusionState
                     }
+              replicateM_ numberOfSteps $ step options fusionContext
+              v <- S.freeze fusionState
+              putStrLn $ show v
               return ()
