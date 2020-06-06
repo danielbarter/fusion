@@ -22,8 +22,10 @@ import System.Environment (getArgs)
 import System.Directory (setCurrentDirectory)
 import qualified Codec.Picture as JP
 import System.Random (randomIO,mkStdGen,setStdGen)
+import System.IO (openFile, IOMode(..),hPutStrLn, hClose)
 import Control.Exception (Exception(..),throwIO)
 import Control.Monad (replicateM_)
+
 
 {-
 boundary pattern for tiles
@@ -240,11 +242,19 @@ indexToCoordinates :: Options -> Int -> (Int,Int)
 indexToCoordinates Options{..} i = (i `div` numberOfColumns, i `mod` numberOfColumns)
 
 produceTiling :: Options -> FusionContext -> IO ()
-produceTiling Options{..} FusionContext{..} = do
+produceTiling options@Options{..} FusionContext{..} = do
   frozenFusionState <- S.freeze fusionState
-  let totalWidth  = numberOfColumns * tileWidth
-      totalHeight = numberOfRows * tileHeight
-  putStrLn $ svgHeader totalWidth totalHeight
+  let totalWidth    = numberOfColumns * tileWidth
+      totalHeight   = numberOfRows * tileHeight
+      svgBody index =
+        let (row,column) = indexToCoordinates options index
+            path = svg $ tileStore V.! ( frozenFusionState S.! index )
+        in svgBodyHelper row column tileWidth tileHeight path
+  handle <- openFile ( "tile_" <> (unpack $ seed) <> ".svg" )  WriteMode
+  hPutStrLn handle $ svgHeader totalWidth totalHeight
+  sequence_ $ hPutStrLn handle <$> svgBody <$> [0..(S.length frozenFusionState)-1]
+  hPutStrLn handle svgTail
+  hClose handle
   return ()
   where
     -- TODO: double show to get quotation marks is bad
@@ -253,6 +263,18 @@ produceTiling Options{..} FusionContext{..} = do
                              " height="            <>
                              (show $ show height)  <>
                              " xmlns=\"http://www.w3.org/2000/svg\">"
+    svgBodyHelper row col width height path = "  <image x="          <>
+                                        (show . show $ width * col)  <>
+                                        " y="                        <>
+                                        (show . show $ height * row) <>
+                                        " width="                    <>
+                                        (show $ show width)          <>
+                                        " height="                   <>
+                                        (show $ show height)         <>
+                                        " href="                     <>
+                                        (show path)                  <>
+                                        " />"
+    svgTail = "</svg>"
 
 
 word8ToBool :: Word8 -> Bool
