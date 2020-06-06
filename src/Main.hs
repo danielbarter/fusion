@@ -11,7 +11,6 @@ import Foreign.Storable (peek)
 import qualified Data.Vector as V
 import Crypto.Hash.MD5 (hash)
 import qualified Data.Map.Strict as M
--- import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Data.ByteString.Char8 (unpack)
 import Data.ByteString.Internal (ByteString(..))
@@ -171,6 +170,7 @@ generateTeaLeafImage Options{..} = do
   vector <- S.freeze $ S.MVector size foreignPtr
   -- we set the random number generator here because seedNum is in scope
   -- this is not an ideal location, but we need a refactor to fix
+  -- TODO: fix this
   setStdGen $ mkStdGen seedNum
   return $ JP.Image numberOfColumns numberOfRows vector
 
@@ -225,8 +225,8 @@ instance Exception FusionError
 
 macroTileIndices ::
   Options -> Int -> (Int,Int,Int,Int)
-macroTileIndices Options{..} index =
-  let (row,column) = indexToCoordinates index
+macroTileIndices options@Options{..} index =
+  let (row,column) = indexToCoordinates options index
       row'         = ( row + 1 ) `mod` numberOfRows
       column'      = ( column + 1 ) `mod` numberOfColumns
   in ( coordinatesToIndex (row' , column')
@@ -234,15 +234,30 @@ macroTileIndices Options{..} index =
      , coordinatesToIndex (row  , column )
      , coordinatesToIndex (row' , column ))
   where
-   indexToCoordinates i = (i `div` numberOfColumns, i `mod` numberOfColumns)
    coordinatesToIndex (r,c) = r * numberOfColumns + c
 
+indexToCoordinates :: Options -> Int -> (Int,Int)
+indexToCoordinates Options{..} i = (i `div` numberOfColumns, i `mod` numberOfColumns)
 
-
+produceTiling :: Options -> FusionContext -> IO ()
+produceTiling Options{..} FusionContext{..} = do
+  frozenFusionState <- S.freeze fusionState
+  let totalWidth  = numberOfColumns * tileWidth
+      totalHeight = numberOfRows * tileHeight
+  putStrLn $ svgHeader totalWidth totalHeight
+  return ()
+  where
+    -- TODO: double show to get quotation marks is bad
+    svgHeader width height = "<svg width="         <>
+                             (show $ show width)   <>
+                             " height="            <>
+                             (show $ show height)  <>
+                             " xmlns=\"http://www.w3.org/2000/svg\">"
 
 
 word8ToBool :: Word8 -> Bool
 word8ToBool w = if w == 0 then False else True
+
 
 main :: IO ()
 main = do
@@ -278,6 +293,5 @@ main = do
                     , fusionState = fusionState
                     }
               replicateM_ numberOfSteps $ step options fusionContext
-              frozenFusionState <- S.freeze fusionState
-              putStrLn $ show frozenFusionState
+              produceTiling options fusionContext
               return ()
