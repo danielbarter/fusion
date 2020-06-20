@@ -279,7 +279,7 @@ produceTiling options@Options{..} FusionContext{..} = do
         in svgBodyHelper row column tileWidth tileHeight path
   handle <- openFile ( "tile_" <> (unpack $ seed) <> ".svg" )  WriteMode
   hPutStrLn handle $ svgHeader totalWidth totalHeight
-  sequence_ $ hPutStrLn handle <$> svgBody <$> [0..(S.length frozenFusionState)-1]
+  sequence_ $ ( \i -> do { tileBody <- svgBody i; hPutStrLn handle tileBody } ) <$> [0..(S.length frozenFusionState)-1]
   hPutStrLn handle svgTail
   hClose handle
   return ()
@@ -289,17 +289,10 @@ produceTiling options@Options{..} FusionContext{..} = do
                              " height="            <>
                              (show $ show height)  <>
                              " xmlns=\"http://www.w3.org/2000/svg\">"
-    svgBodyHelper row col width height path = "  <image x="          <>
-                                        (show . show $ width * col)  <>
-                                        " y="                        <>
-                                        (show . show $ height * row) <>
-                                        " width="                    <>
-                                        (show $ show width)          <>
-                                        " height="                   <>
-                                        (show $ show height)         <>
-                                        " href="                     <>
-                                        (show path)                  <>
-                                        " />"
+    svgBodyHelper row col width height path = do
+      body <- readFile path
+      return $
+        "<g transform=" <> (show $ "translate(" <> (show $ width * col) <> "," <> (show $ height * row) <> ")" ) <> ">" <> body <> "</g>"
     svgTail = "</svg>"
 
 
