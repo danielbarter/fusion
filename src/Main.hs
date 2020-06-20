@@ -132,10 +132,24 @@ computeLocalRelations store = V.fromList <$> V.foldl' action M.empty macroTiles
             Just v -> M.insert boundary ( tile : v ) m
 
 
+data ParsedOptions = ParsedOptions
+  { parsedSeed :: ByteString
+  , parsedNumberOfRows :: Int
+  , parsedNumberOfColumns :: Int
+  , parsedRowCutOff :: Int
+  , parsedColumnCutOff :: Int
+  , parsedTileWidth :: Int
+  , parsedTileHeight :: Int
+  , parsedVacuumTile :: Int
+  , parsedNumberOfSteps :: Int
+  } deriving (Show)
+
 data Options = Options
   { seed :: ByteString
+  , seedNum :: Int
   , numberOfRows :: Int
   , numberOfColumns :: Int
+  , size :: Int
   , rowCutOff :: Int
   , columnCutOff :: Int
   , tileWidth :: Int
@@ -144,8 +158,28 @@ data Options = Options
   , numberOfSteps :: Int
   } deriving (Show)
 
-instance Csv.FromNamedRecord Options where
-  parseNamedRecord m = Options <$>
+generateOptions :: ParsedOptions -> IO Options
+generateOptions ParsedOptions{..} = do
+  let size = parsedNumberOfRows * parsedNumberOfColumns
+      PS hashPtr _ _ = ( hash parsedSeed )
+  seedNum <- withForeignPtr ( castForeignPtr hashPtr ) peek
+  return $ Options
+    { seed = parsedSeed
+    , seedNum = seedNum
+    , numberOfRows = parsedNumberOfRows
+    , numberOfColumns = parsedNumberOfColumns
+    , size = size
+    , rowCutOff = parsedRowCutOff
+    , columnCutOff = parsedColumnCutOff
+    , tileWidth = parsedTileWidth
+    , tileHeight = parsedTileHeight
+    , vacuumTile = parsedVacuumTile
+    , numberOfSteps = parsedNumberOfSteps
+    }
+
+
+instance Csv.FromNamedRecord ParsedOptions where
+  parseNamedRecord m = ParsedOptions <$>
     m .: "seed" <*>
     m .: "numberOfRows" <*>
     m .: "numberOfColumns" <*>
@@ -163,17 +197,10 @@ foreign import ccall "generateTeaLeaf" generateTeaLeafC ::
 
 generateTeaLeafImage :: Options -> IO (JP.Image Word8)
 generateTeaLeafImage Options{..} = do
-  let size = numberOfRows * numberOfColumns
-      PS hashPtr _ _ = ( hash seed )
-  seedNum <- withForeignPtr ( castForeignPtr hashPtr ) peek
   ptr <- generateTeaLeafC seedNum
     numberOfRows numberOfColumns rowCutOff columnCutOff
   foreignPtr <- newForeignPtr freeTeaLeafC ptr
   vector <- S.freeze $ S.MVector size foreignPtr
-  -- we set the random number generator here because seedNum is in scope
-  -- this is not an ideal location, but we need a refactor to fix
-  -- TODO: fix this
-  setStdGen $ mkStdGen seedNum
   return $ JP.Image numberOfColumns numberOfRows vector
 
 data FusionContext = FusionContext
@@ -257,7 +284,6 @@ produceTiling options@Options{..} FusionContext{..} = do
   hClose handle
   return ()
   where
-    -- TODO: double show to get quotation marks is bad
     svgHeader width height = "<svg width="         <>
                              (show $ show width)   <>
                              " height="            <>
@@ -290,11 +316,12 @@ main = do
       let folder = Prelude.head args
       setCurrentDirectory folder -- we work relative to a tile directory
       optionsByteString <- L.readFile "options.csv"
-      let eitherOptions = Csv.decodeByName optionsByteString
-      case eitherOptions of
+      let eitherParsedOptions = Csv.decodeByName optionsByteString
+      case eitherParsedOptions of
         Left err -> putStrLn $ "error parsing options.csv: " <> err
-        Right (_,optionsVector) -> do
-          let options@Options{..} = V.head optionsVector
+        Right (_,parsedOptionsVector) -> do
+          let parsedOptions = V.head parsedOptionsVector
+          options@Options{..} <- generateOptions parsedOptions
           teaLeafImage <- generateTeaLeafImage options
           JP.writePng ("tealeaf_" <> (unpack $ seed) <> ".png") teaLeafImage
           manifestByteString <- L.readFile "manifest.csv"
@@ -305,8 +332,7 @@ main = do
               let tileStore = tileVector
                   localRelations = computeLocalRelations tileStore
                   teaLeaf = S.map word8ToBool $ JP.imageData teaLeafImage
-                  arrayLength = numberOfColumns * numberOfRows
-              fusionState <- SM.new $ arrayLength
+              fusionState <- SM.new $ size
               SM.set fusionState vacuumTile
               let fusionContext = FusionContext
                     { tileStore = tileStore
@@ -314,6 +340,7 @@ main = do
                     , teaLeaf = teaLeaf
                     , fusionState = fusionState
                     }
+              setStdGen $ mkStdGen seedNum
               replicateM_ numberOfSteps $ step options fusionContext
               produceTiling options fusionContext
               return ()
