@@ -33,6 +33,8 @@ boundary pattern for tiles
   2 0
    3
 this is the order of the boundary labels in manifest.csv
+
+the last column in manifest.csv is the weight of the tile. The determines how often we want the tile to appear.
 -}
 
 
@@ -42,11 +44,12 @@ data Tile = Tile
   , top :: Int
   , left :: Int
   , bottom :: Int
+  , tileWeight :: Double
   } deriving (Show)
 
 instance Csv.FromRecord Tile where
   parseRecord m =
-    Tile <$> m .! 0 <*> m .! 1 <*>  m .! 2 <*> m .! 3 <*> m .! 4
+    Tile <$> m .! 0 <*> m .! 1 <*>  m .! 2 <*> m .! 3 <*> m .! 4 <*> m .! 5
 
 
 
@@ -84,6 +87,7 @@ data MacroTile = MacroTile
   , topRight :: Int
   , topLeft :: Int
   , bottomLeft :: Int
+  , macroWeight :: Double
   } deriving (Show)
 
 macroBoundary :: TileStore -> MacroTile -> MacroBoundary
@@ -112,7 +116,7 @@ computeMacroTiles store = V.filter ( validMacroTile store ) $ do
   b <- indices
   c <- indices
   d <- indices
-  return $ MacroTile a b c d
+  return $ MacroTile a b c d $ foldr (*) 1 $ ( \i -> tileWeight $ store V.! i ) <$> [a,b,c,d]
   where numOfTiles = V.length store
         indices    = V.generate numOfTiles id
 
@@ -230,24 +234,39 @@ step options@Options{..} FusionContext{..} = do
             , topRight = topRightTile
             , topLeft = topLeftTile
             , bottomLeft = bottomLeftTile
+            , macroWeight = -1 -- we are only constructing this tile to compute it's boundary, so the weight is irrelevant
             }
           macroTileBoundary = macroBoundary tileStore macroTile
           mLocalRelation = M.lookup macroTileBoundary localRelations
       case mLocalRelation of
         Nothing -> throwIO $ MissingKey macroTileBoundary
         Just localRelation -> do
-          let localRelationLength = V.length localRelation
-          randomInt' <- randomIO
-          let localRelationIndex = randomInt' `mod` localRelationLength
-              newMacroTile = localRelation V.! localRelationIndex
+          let localRelationWeights = macroWeight <$> localRelation
+              localRelationTotalWeight = sum localRelationWeights
+              localRelationDistrubution = (\x -> x / localRelationTotalWeight) <$> localRelationWeights
+          localRelationIndex <- sample localRelationDistrubution
+          let newMacroTile = localRelation V.! localRelationIndex
           SM.write fusionState bottomRightIndex $ bottomRight newMacroTile
           SM.write fusionState topRightIndex    $ topRight newMacroTile
           SM.write fusionState topLeftIndex     $ topLeft newMacroTile
           SM.write fusionState bottomLeftIndex  $ bottomLeft newMacroTile
     else return ()
 
+-- takes a distribution vector and produces a sample from it
+sample :: V.Vector Double -> IO Int
+sample v = do
+  let l = V.length v
+      cummulative = V.fromList $ ( \i -> sum $ V.take i v ) <$> [1..l]
+  randomDouble <- randomIO :: IO Double
+  let mindex = V.findIndex (\internal -> randomDouble < internal) cummulative
+  case mindex of
+    Nothing -> throwIO $ FailedSample randomDouble cummulative
+    Just index -> return index
 
-data FusionError = MissingKey MacroBoundary deriving (Show)
+data FusionError =
+  MissingKey MacroBoundary
+  | FailedSample Double ( V.Vector Double )
+  deriving (Show)
 
 instance Exception FusionError
 
