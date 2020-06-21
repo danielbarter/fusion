@@ -215,9 +215,8 @@ runFusion Options{..} FusionContext{..} = undefined
 
 step :: Options -> FusionContext -> IO ()
 step options@Options{..} FusionContext{..} = do
-  let arrayLength = SM.length fusionState
   randomInt <- randomIO
-  let index = randomInt `mod` arrayLength
+  let index = randomInt `mod` size
   if ( teaLeaf S.! index )
     then do
       let (bottomRightIndex, topRightIndex, topLeftIndex, bottomLeftIndex) =
