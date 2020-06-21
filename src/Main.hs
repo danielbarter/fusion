@@ -128,7 +128,7 @@ computeLocalRelations store = V.fromList <$> V.foldl' action M.empty macroTiles
         action m tile =
           let boundary = macroBoundary store tile
           in case M.lookup boundary m of
-            Nothing -> M.insert boundary [] m
+            Nothing -> M.insert boundary [tile] m
             Just v -> M.insert boundary ( tile : v ) m
 
 
