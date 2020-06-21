@@ -267,6 +267,9 @@ macroTileIndices options@Options{..} index =
 indexToCoordinates :: Options -> Int -> (Int,Int)
 indexToCoordinates Options{..} i = (i `div` numberOfColumns, i `mod` numberOfColumns)
 
+
+
+-- TODO: Currently this is very brittle. For example, it is white space sensitive. Probably want to actually parse the tile svg files
 produceTiling :: Options -> FusionContext -> IO ()
 produceTiling options@Options{..} FusionContext{..} = do
   frozenFusionState <- S.freeze fusionState
@@ -278,7 +281,7 @@ produceTiling options@Options{..} FusionContext{..} = do
         in svgBodyHelper row column tileWidth tileHeight path
   handle <- openFile ( "tile_" <> (unpack $ seed) <> ".svg" )  WriteMode
   hPutStrLn handle $ svgHeader totalWidth totalHeight
-  sequence_ $ ( \i -> do { tileBody <- svgBody i; hPutStrLn handle tileBody } ) <$> [0..(S.length frozenFusionState)-1]
+  sequence_ $ ( \i -> do { tileBody <- svgBody i; if tileBody=="" then return () else hPutStrLn handle tileBody } ) <$> [0..(S.length frozenFusionState)-1]
   hPutStrLn handle svgTail
   hClose handle
   return ()
@@ -289,9 +292,13 @@ produceTiling options@Options{..} FusionContext{..} = do
                              (show $ show height)  <>
                              " xmlns=\"http://www.w3.org/2000/svg\">"
     svgBodyHelper row col width height path = do
-      body <- readFile path
-      return $
-        "<g transform=" <> (show $ "translate(" <> (show $ width * col) <> "," <> (show $ height * row) <> ")" ) <> ">" <> body <> "</g>"
+      bodyLines <- lines <$> readFile path
+      if (length bodyLines == 2)
+        then return ""
+        else do
+          let body = mconcat $ init $ tail bodyLines
+          return $
+            "<g transform=" <> (show $ "translate(" <> (show $ width * col) <> "," <> (show $ height * row) <> ")" ) <> ">" <> body <> "</g>"
     svgTail = "</svg>"
 
 
