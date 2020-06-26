@@ -1,78 +1,82 @@
 #include "tealeaf.h"
 
-bool masked(uint32_t row,
-            uint32_t column,
-            uint32_t num_rows,
-            uint32_t num_columns,
-            uint32_t row_cutoff,
-            uint32_t column_cutoff)
+int32_t conjugateIndex (int32_t index,int32_t num_rows, int32_t num_columns)
 {
-  return (row_cutoff <= row && row <= num_rows - row_cutoff)
-    || (column_cutoff <= column && column <= num_columns - column_cutoff);
+  int32_t row = index / num_columns;
+  int32_t column = index % num_columns;
+  int32_t conjugate_row = ( num_rows - row ) % num_rows;
+  int32_t conjugate_col = ( num_columns - column ) % num_columns;
+  return conjugate_row * num_columns + conjugate_col;
 }
 
-uint8_t *generateTeaLeaf(uint32_t seed,
-                      uint32_t num_rows,
-                      uint32_t num_columns,
-                      uint32_t row_cutoff,
-                      uint32_t column_cutoff)
+uint8_t *generateTeaLeaf( fftw_complex *amplitudes,
+                          int32_t num_rows,
+                          int32_t num_columns,
+                          int32_t row_cutoff,
+                          int32_t column_cutoff )
 {
-  fftw_complex *in, *middle, *out;
+  fftw_complex *in, *out;
   uint8_t *image;
-  fftw_plan plan1;
-  fftw_plan plan2;
-  uint32_t i;
-  uint32_t row, column;
-  uint32_t array_size = num_rows * num_columns;
+  fftw_plan plan;
+  int32_t array_size = num_rows * num_columns;
+  int32_t amplitude_array_size = row_cutoff * column_cutoff + (row_cutoff -1) * (column_cutoff - 1);
+  int32_t i;
+  int32_t amplitude_index = 0;
+  int32_t *fundamental_domain;
+  int32_t row,column;
+  int32_t index;
+  int32_t conjugate_index;
 
-  srand(seed);
+  in = fftw_alloc_complex(array_size);
+  out = fftw_alloc_complex(array_size);
 
+  plan = fftw_plan_dft_2d(num_rows,num_columns,in,out,FFTW_BACKWARD,FFTW_ESTIMATE);
 
-  // it would be nice to statically allocate these arrays, but the
-  // fftw malloc makes sure everything is alligned right for simd
-  in     = fftw_alloc_complex(array_size);
-  middle = fftw_alloc_complex(array_size);
-  out    = fftw_alloc_complex(array_size);
-
-  // plans need to be created before initialization
-  plan1 = fftw_plan_dft_2d(num_rows,
-                           num_columns,
-                           in, middle,
-                           FFTW_FORWARD,
-                           FFTW_ESTIMATE);
-
-  plan2 = fftw_plan_dft_2d(num_rows,
-                           num_columns,
-                           middle, out,
-                           FFTW_BACKWARD,
-                           FFTW_ESTIMATE);
-
-  for (i = 0; i < array_size; ++i)
+  // initialize fundamental domain
+  fundamental_domain = malloc(amplitude_array_size * sizeof(int32_t));
+  for (row = 0; row < row_cutoff; row++)
     {
-      in[i][0] = (double) (rand() % 2); // initialize real part
-      in[i][1] = 0.0; // initialize complex part
-    }
-
-  fftw_execute(plan1);
-
-  for (i = 0; i < array_size; ++i)
-    {
-      row = i / num_columns;
-      column = i % num_columns;
-      if ( masked(row,column,num_rows,num_columns,row_cutoff,column_cutoff) )
+      for (column = 0; column < column_cutoff; column++)
         {
-        middle[i][0] = 0.0;
-        middle[i][1] = 0.0;
+          fundamental_domain[amplitude_index] = row * num_columns + column;
+          amplitude_index++;
         }
     }
 
-  fftw_execute(plan2);
+  for (row = 1; row < row_cutoff; row++)
+    {
+      for (column = 1; column < column_cutoff; column++)
+        {
+          fundamental_domain[amplitude_index] = row * num_columns + (num_columns - column);
+          amplitude_index++;
+        }
+    }
+
+  // initializing input array
+  for (i = 0; i < array_size; ++i)
+    {
+      in[i][0] = 0.0;
+      in[i][1] = 0.0;
+    }
+
+  // setting amplitudes
+  for (amplitude_index = 0; amplitude_index < amplitude_array_size; amplitude_index++)
+    {
+      index =  fundamental_domain[amplitude_index];
+      conjugate_index = conjugateIndex( index, num_rows, num_columns );
+      in[index][0] = amplitudes[amplitude_index][0];
+      in[index][1] = amplitudes[amplitude_index][1];
+      in[conjugate_index][0] = amplitudes[amplitude_index][0];
+      in[conjugate_index][1] = - amplitudes[amplitude_index][1];
+    }
+
+  fftw_execute(plan);
 
   image = malloc(array_size * sizeof(bool));
 
   for (i = 0; i < array_size; ++i)
     {
-      if ( out[i][0] > array_size / 2 )
+      if ( out[i][0] > 0 )
         {
           image[i] = 255;
         } else
@@ -81,14 +85,13 @@ uint8_t *generateTeaLeaf(uint32_t seed,
         }
     }
 
-
-  fftw_destroy_plan(plan1);
-  fftw_destroy_plan(plan2);
+  fftw_destroy_plan(plan);
   fftw_free(in);
-  fftw_free(middle);
   fftw_free(out);
+  free(fundamental_domain);
 
   return image;
+
 }
 
 void freeTeaLeaf(bool *ptr)

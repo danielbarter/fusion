@@ -196,12 +196,12 @@ instance Csv.FromNamedRecord ParsedOptions where
 
 foreign import ccall "&freeTeaLeaf" freeTeaLeafC :: FunPtr (Ptr Word8 -> IO ())
 foreign import ccall "generateTeaLeaf" generateTeaLeafC ::
-  Int -> Int -> Int -> Int -> Int -> IO (Ptr Word8)
+  (Ptr Double) -> Int -> Int -> Int -> Int -> IO (Ptr Word8)
 
 
-generateTeaLeafImage :: Options -> IO (JP.Image Word8)
-generateTeaLeafImage Options{..} = do
-  ptr <- generateTeaLeafC seedNum
+generateTeaLeafImage :: Options -> (Ptr Double) -> IO (JP.Image Word8)
+generateTeaLeafImage Options{..} ptrDouble  = do
+  ptr <- generateTeaLeafC ptrDouble
     numberOfRows numberOfColumns rowCutOff columnCutOff
   foreignPtr <- newForeignPtr freeTeaLeafC ptr
   vector <- S.freeze $ S.MVector size foreignPtr
@@ -288,7 +288,7 @@ indexToCoordinates Options{..} i = (i `div` numberOfColumns, i `mod` numberOfCol
 
 
 
--- TODO: Currently this is very brittle. For example, it is white space sensitive. Probably want to actually parse the tile svg files
+-- TODO: Currently this is very brittle. For example, it is white space sensitive. Want to actually parse the tile svg files
 produceTiling :: Options -> FusionContext -> IO ()
 produceTiling options@Options{..} FusionContext{..} = do
   frozenFusionState <- S.freeze fusionState
@@ -340,7 +340,12 @@ main = do
         Right (_,parsedOptionsVector) -> do
           let parsedOptions = V.head parsedOptionsVector
           options@Options{..} <- generateOptions parsedOptions
-          teaLeafImage <- generateTeaLeafImage options
+          setStdGen $ mkStdGen seedNum
+          let numberOfModes = 2 * ( rowCutOff * columnCutOff  + ( rowCutOff - 1 ) * ( columnCutOff - 1 ) - 1 )
+          modeAmplitudesList <- sequence $ take numberOfModes $ repeat randomIO
+          let modeAmplitudesVec = S.fromList $ 0:0:modeAmplitudesList
+          SM.MVector _ modeForeignPtr <- S.thaw modeAmplitudesVec
+          teaLeafImage <- withForeignPtr modeForeignPtr (generateTeaLeafImage options)
           JP.writePng ("tealeaf_" <> (unpack $ seed) <> ".png") teaLeafImage
           manifestByteString <- L.readFile "manifest.csv"
           let eitherTiles = Csv.decode Csv.NoHeader manifestByteString
@@ -358,7 +363,6 @@ main = do
                     , teaLeaf = teaLeaf
                     , fusionState = fusionState
                     }
-              setStdGen $ mkStdGen seedNum
               replicateM_ numberOfSteps $ step options fusionContext
               produceTiling options fusionContext
               return ()
