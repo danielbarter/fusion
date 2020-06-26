@@ -342,8 +342,10 @@ main = do
           options@Options{..} <- generateOptions parsedOptions
           setStdGen $ mkStdGen seedNum
           let numberOfModes = 2 * ( rowCutOff * columnCutOff  + ( rowCutOff - 1 ) * ( columnCutOff - 1 ) - 1 )
+          -- randomIO generates doubles between 0 and 1, so we generate the signs independently.
+          modeSignsList <- (fmap . fmap) (\b -> if b then 1.0 else -1.0) $ sequence $ take numberOfModes $ repeat randomIO :: IO [Double]
           modeAmplitudesList <- sequence $ take numberOfModes $ repeat randomIO
-          let modeAmplitudesVec = S.fromList $ 0:0:modeAmplitudesList
+          let modeAmplitudesVec = S.fromList $ 0:0:(zipWith (*) modeSignsList modeAmplitudesList )
           SM.MVector _ modeAmplitudeForeignPtr <- S.thaw modeAmplitudesVec
           teaLeafImage <- withForeignPtr modeAmplitudeForeignPtr (generateTeaLeafImage options)
           JP.writePng ("tealeaf_" <> (unpack $ seed) <> ".png") teaLeafImage
