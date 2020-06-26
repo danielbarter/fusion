@@ -344,8 +344,8 @@ main = do
           let numberOfModes = 2 * ( rowCutOff * columnCutOff  + ( rowCutOff - 1 ) * ( columnCutOff - 1 ) - 1 )
           modeAmplitudesList <- sequence $ take numberOfModes $ repeat randomIO
           let modeAmplitudesVec = S.fromList $ 0:0:modeAmplitudesList
-          SM.MVector _ modeForeignPtr <- S.thaw modeAmplitudesVec
-          teaLeafImage <- withForeignPtr modeForeignPtr (generateTeaLeafImage options)
+          SM.MVector _ modeAmplitudeForeignPtr <- S.thaw modeAmplitudesVec
+          teaLeafImage <- withForeignPtr modeAmplitudeForeignPtr (generateTeaLeafImage options)
           JP.writePng ("tealeaf_" <> (unpack $ seed) <> ".png") teaLeafImage
           manifestByteString <- L.readFile "manifest.csv"
           let eitherTiles = Csv.decode Csv.NoHeader manifestByteString
